@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm --prefix frontend ci && npm --prefix frontend run build && rm -rf dist && cp -R frontend/dist dist",
     "preview": "vite preview"
   },
   "dependencies": {
