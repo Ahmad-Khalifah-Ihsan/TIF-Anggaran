@@ -2,13 +2,18 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Shield, Clock, Trash2, X, Key } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { authApi } from '../services/api';
+import { authApi, userManagementApi } from '../services/api';
 
 export default function AccountInfo() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [confirmResetText, setConfirmResetText] = useState('');
+  const [resetError, setResetError] = useState('');
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';
@@ -36,6 +41,28 @@ export default function AccountInfo() {
     } finally {
       setDeleting(false);
       setShowDeleteModal(false);
+    }
+  };
+
+  const handleResetDatabase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (confirmResetText !== 'HAPUS DATABASE') {
+      setResetError('Teks konfirmasi salah. Harap ketik "HAPUS DATABASE".');
+      return;
+    }
+    
+    setResetting(true);
+    setResetError('');
+    try {
+      const res = await userManagementApi.resetDatabase();
+      alert(res.message || 'Database berhasil direset.');
+      setShowResetModal(false);
+      setConfirmResetText('');
+      navigate('/settings');
+    } catch (err: any) {
+      setResetError(err.message || 'Gagal mereset database');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -123,13 +150,25 @@ export default function AccountInfo() {
           {/* Danger Zone */}
           <div className="mt-6 pt-6 border-t border-slate-800">
             <p className="text-xs text-slate-400 mb-3">Zona Berbahaya</p>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors w-full sm:w-auto"
-            >
-              <Trash2 size={18} />
-              Hapus Akun
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors w-full sm:w-auto"
+              >
+                <Trash2 size={18} />
+                Hapus Akun
+              </button>
+
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => setShowResetModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600/10 text-red-400 border border-red-600/30 rounded-lg hover:bg-red-600/20 transition-colors w-full sm:w-auto font-medium"
+                >
+                  <Trash2 size={18} />
+                  Hapus Seluruh Database
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -179,6 +218,90 @@ export default function AccountInfo() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Database Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">Hapus Seluruh Database</h2>
+              <button
+                onClick={() => {
+                  setShowResetModal(false);
+                  setConfirmResetText('');
+                  setResetError('');
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
+              <p className="text-red-400 text-sm leading-relaxed">
+                <strong>PERINGATAN SANGAT KRITIS:</strong> Tindakan ini akan menghapus permanen seluruh riwayat transaksi, ringkasan bulanan, file bukti transaksi di storage, dan menyetel ulang saldo awal semua kategori menjadi Rp 0.
+              </p>
+              <p className="text-red-400 text-sm mt-2 font-bold animate-pulse">
+                Tindakan ini TIDAK DAPAT DIBATALKAN atau DIKEMBALIKAN.
+              </p>
+            </div>
+
+            <form onSubmit={handleResetDatabase} className="space-y-4">
+              {resetError && (
+                <div className="bg-red-500/20 text-red-400 text-sm p-3 rounded-lg flex items-center gap-2">
+                  <X size={16} className="flex-shrink-0" />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-2">
+                  Ketik <strong className="text-white">HAPUS DATABASE</strong> untuk mengonfirmasi:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="HAPUS DATABASE"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500 font-mono text-center tracking-wider"
+                  value={confirmResetText}
+                  onChange={(e) => setConfirmResetText(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetModal(false);
+                    setConfirmResetText('');
+                    setResetError('');
+                  }}
+                  className="flex-1 py-3 rounded-lg font-medium border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors text-sm"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetting || confirmResetText !== 'HAPUS DATABASE'}
+                  className="flex-1 py-3 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-30 disabled:hover:bg-red-600 flex items-center justify-center gap-2 transition-colors text-sm"
+                >
+                  {resetting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white"></div>
+                      Mereset...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={18} />
+                      Ya, Hapus Semua
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

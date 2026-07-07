@@ -21,8 +21,7 @@ import {
   CheckSquare, 
   LogOut, 
   Calendar,
-  Clock,
-  RotateCcw
+  Clock
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000';
@@ -89,7 +88,6 @@ export default function BudgetManagement() {
   const [filterEndDate, setFilterEndDate] = useState('');
   const [filterBulan, setFilterBulan] = useState<number | null>(null);
   const [filterTahun, setFilterTahun] = useState(new Date().getFullYear());
-  const [resetCategoryIds, setResetCategoryIds] = useState<Set<string>>(new Set());
   
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
@@ -164,25 +162,6 @@ export default function BudgetManagement() {
     const totalMasuk = txns.filter(t => t.tipe === 'masuk').reduce((sum, t) => sum + t.jumlah, 0);
     const totalKeluar = txns.filter(t => t.tipe === 'keluar').reduce((sum, t) => sum + t.jumlah, 0);
     return { total_masuk: totalMasuk, total_keluar: totalKeluar };
-  };
-
-  const handleResetPeriod = () => {
-    // Reset filter dropdown ke posisi default
-    setFilterBulan(null);
-    setFilterTahun(new Date().getFullYear());
-  };
-
-  const toggleCategoryReset = (categoryId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setResetCategoryIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(categoryId)) {
-        newSet.delete(categoryId);
-      } else {
-        newSet.add(categoryId);
-      }
-      return newSet;
-    });
   };
 
   const formatCurrency = (num: number) => {
@@ -647,45 +626,36 @@ export default function BudgetManagement() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {categories.filter(c => c.is_active !== false).map((category) => {
           const catSummary = getCategorySummary(category.id);
-          const isReset = resetCategoryIds.has(category.id);
-          const displaySaldoAwal = isReset ? 0 : (catSummary.saldo_awal || 0);
-          const displayTotalMasuk = isReset ? 0 : catSummary.total_masuk;
-          const displayTotalKeluar = isReset ? 0 : catSummary.total_keluar;
-          const displaySisa = isReset ? 0 : ((catSummary.saldo_awal || 0) + catSummary.total_masuk - catSummary.total_keluar);
+          const sisa = (catSummary.saldo_awal || 0) + catSummary.total_masuk - catSummary.total_keluar;
           
           return (
             <div key={category.id} className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 hover:shadow-lg transition-all" onClick={() => handleOpenDetail(category)}>
               <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-mono bg-primary/20 text-primary px-2 py-0.5 rounded">{category.kode}</span>
-                  <div className="flex items-center gap-1">
-                    <button onClick={(e) => toggleCategoryReset(category.id, e)} className={`p-1 rounded transition-colors ${isReset ? 'text-green-400 bg-green-500/20 hover:bg-green-500/30' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`} title={isReset ? 'Kembalikan Nilai' : 'Reset ke 0'}>
-                      <RotateCcw size={14} />
-                    </button>
-                    <button onClick={(e) => handleOpenSaldoEdit(category, e)} className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors" title="Edit Saldo Awal">
-                      <Settings size={14} />
-                    </button>
-                  </div>
+                  <button onClick={(e) => handleOpenSaldoEdit(category, e)} className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors" title="Edit Saldo Awal">
+                    <Settings size={14} />
+                  </button>
                 </div>
                 <h3 className="font-semibold text-sm line-clamp-2 cursor-pointer" title={category.nama}>{category.nama}</h3>
               </div>
               <div className="p-4 space-y-2">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Saldo Awal</span>
-                  <span className={`font-medium ${isReset ? 'text-muted-foreground line-through' : ''}`}>{formatCurrency(displaySaldoAwal)}</span>
+                  <span className="font-medium">{formatCurrency(catSummary.saldo_awal || 0)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-green-400 flex items-center gap-1"><TrendingUp size={12} /> Masuk</span>
-                  <span className={`font-medium text-green-400 ${isReset ? 'text-muted-foreground line-through' : ''}`}>+{formatCurrency(displayTotalMasuk)}</span>
+                  <span className="font-medium text-green-400">+{formatCurrency(catSummary.total_masuk)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-red-400 flex items-center gap-1"><TrendingDown size={12} /> Keluar</span>
-                  <span className={`font-medium text-red-400 ${isReset ? 'text-muted-foreground line-through' : ''}`}>-{formatCurrency(displayTotalKeluar)}</span>
+                  <span className="font-medium text-red-400">-{formatCurrency(catSummary.total_keluar)}</span>
                 </div>
                 <div className="border-t border-border"></div>
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-sm">Sisa</span>
-                  <span className={`font-bold text-lg ${isReset ? 'text-muted-foreground' : (displaySisa >= 0 ? 'text-green-400' : 'text-red-400')}`}>{formatCurrency(displaySisa)}</span>
+                  <span className={`font-bold text-lg ${sisa >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatCurrency(sisa)}</span>
                 </div>
               </div>
             </div>

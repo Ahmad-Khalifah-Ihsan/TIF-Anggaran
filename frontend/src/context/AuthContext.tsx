@@ -6,6 +6,7 @@ interface User {
   nama_lengkap?: string;
   telegram_id?: number;
   must_change_password: boolean;
+  role?: 'admin' | 'user';
 }
 
 interface AuthContextType {

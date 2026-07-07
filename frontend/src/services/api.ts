@@ -102,6 +102,14 @@ export const userManagementApi = {
     });
     return handleResponse<any>(response);
   },
+
+  async resetDatabase() {
+    const response = await fetch(`${API_BASE_URL}/api/v1/admin/reset-database`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<any>(response);
+  },
 };
 
 export const budgetManagementApi = {

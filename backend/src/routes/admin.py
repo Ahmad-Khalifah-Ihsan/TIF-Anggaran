@@ -404,6 +404,49 @@ async def delete_user(
         raise HTTPException(status_code=500, detail="Terjadi kesalahan server")
 
 
+@router.post("/reset-database")
+async def reset_database(current_user = Depends(require_admin)):
+    """Purge all records, monthly summaries, reset categories balance, and clean up storage. Admin only."""
+    try:
+        supabase: Client = safe_supabase_call(get_supabase_service_client)
+        
+        # 1. Delete all records from monthly_summary
+        safe_supabase_call(
+            lambda: supabase.table("monthly_summary").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        )
+        
+        # 2. Delete all records from budget_records
+        safe_supabase_call(
+            lambda: supabase.table("budget_records").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        )
+        
+        # 3. Reset category initial balance (saldo_awal = 0)
+        safe_supabase_call(
+            lambda: supabase.table("budget_categories").update({"saldo_awal": 0}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        )
+        
+        # 4. Attempt to clean up Supabase Storage
+        STORAGE_BUCKET = "Database anggaran Infranexia"
+        try:
+            # List files in the 'evidence' folder
+            files = supabase.storage.from_(STORAGE_BUCKET).list("evidence")
+            if files:
+                file_paths = [f"evidence/{f['name']}" for f in files if f['name'] != '.emptyFolderPlaceholder']
+                if file_paths:
+                    supabase.storage.from_(STORAGE_BUCKET).remove(file_paths)
+                    logger.info(f"Cleaned up {len(file_paths)} files from storage bucket")
+        except Exception as storage_err:
+            # We don't want to fail the whole DB reset if storage cleanup fails
+            logger.warning(f"Failed to clear storage bucket during reset: {str(storage_err)}")
+            
+        logger.info(f"Database fully reset by admin: {current_user['username']}")
+        
+        return {"status": "success", "message": "Seluruh data transaksi dan ringkasan bulanan berhasil dihapus, serta saldo awal kategori telah direset ke 0."}
+    except Exception as e:
+        logger.error(f"Reset database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Gagal mereset database. Silakan coba lagi.")
+
+
 @router.get("/security/audit-log")
 async def get_audit_log(
     limit: int = 50,

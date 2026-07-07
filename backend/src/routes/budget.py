@@ -14,6 +14,8 @@ from slowapi.errors import RateLimitExceeded
 from supabase import Client
 
 from .auth import get_current_user, get_supabase_service_client
+import io
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
@@ -21,6 +23,36 @@ router = APIRouter(prefix="/api/v1/budget", tags=["Budget"])
 
 # Supabase Storage bucket name
 STORAGE_BUCKET = "Database anggaran Infranexia"
+
+def compress_image(image_bytes: bytes, max_size_kb: int = 50) -> bytes:
+    try:
+        # Open image
+        img = Image.open(io.BytesIO(image_bytes))
+        
+        # Convert RGBA/P to RGB (JPEG doesn't support transparency/alpha channel)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        # Resize image if it's too large (max width/height 1200px)
+        max_dim = 1200
+        if img.width > max_dim or img.height > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+            
+        # Compress dynamically to get as close to target as possible
+        quality = 85
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=quality)
+        
+        # If still larger than target, decrease quality step by step
+        while len(output.getvalue()) > max_size_kb * 1024 and quality > 30:
+            quality -= 10
+            output = io.BytesIO()
+            img.save(output, format="JPEG", quality=quality)
+            
+        return output.getvalue()
+    except Exception as e:
+        logger.error(f"Image compression failed, uploading original: {str(e)}")
+        return image_bytes
 
 # Pydantic models for category CRUD
 class CategoryCreate(BaseModel):
@@ -381,12 +413,18 @@ async def create_budget_record(
             if evidence.content_type not in allowed_types:
                 raise HTTPException(status_code=400, detail="Tipe file tidak diizinkan")
             
-            # Generate unique filename
-            ext = evidence.filename.split('.')[-1] if '.' in evidence.filename else 'jpg'
-            filename = f"{uuid.uuid4()}.{ext}"
-            
             # Read file content
             content = await evidence.read()
+            
+            # Compress image to target size (~50KB) and convert to JPG if it's an image
+            content_type = evidence.content_type
+            ext = evidence.filename.split('.')[-1] if '.' in evidence.filename else 'jpg'
+            
+            if content_type.startswith('image/'):
+                content = compress_image(content, max_size_kb=50)
+                
+            # Generate unique filename
+            filename = f"{uuid.uuid4()}.{ext}"
             
             # Upload to Supabase Storage
             storage_path = f"evidence/{filename}"
@@ -398,7 +436,7 @@ async def create_budget_record(
                 upload_result = supabase.storage.from_(STORAGE_BUCKET).upload(
                     storage_path,
                     content,
-                    {"content-type": evidence.content_type}
+                    {"content-type": content_type}
                 )
                 # Get public URL
                 evidence_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
