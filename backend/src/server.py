@@ -15,7 +15,10 @@ from typing import Callable
 from pydantic import BaseModel
 from typing import Optional
 
-load_dotenv(dotenv_path="D:\Kerja Praktik\My part in web/anggaran_beta\web_buk_sari\web_buk_sari/backend/.env")
+# Load .env file using relative path to prevent local path dependency in production
+from pathlib import Path
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 from supabase import create_client, Client
 from src.routes.auth import router as auth_router
@@ -144,12 +147,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create uploads directories
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
-if not os.path.exists("uploads/evidence"):
-    os.makedirs("uploads/evidence")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Create uploads directories (wrapped in try-except for read-only serverless filesystems like Vercel)
+try:
+    if not os.path.exists("uploads"):
+        os.makedirs("uploads")
+    if not os.path.exists("uploads/evidence"):
+        os.makedirs("uploads/evidence")
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+except Exception as uploads_err:
+    logger.warning(f"Could not initialize local uploads directory: {str(uploads_err)}")
 
 # Include routers
 app.include_router(auth_router)
