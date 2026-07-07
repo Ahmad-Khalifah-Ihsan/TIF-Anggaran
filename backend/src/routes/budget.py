@@ -317,21 +317,23 @@ async def get_budget_records(
 ):
     try:
         supabase: Client = safe_supabase_call(get_supabase_service_client)
-        query = safe_supabase_call(
-            lambda: supabase.table("budget_records").select("*").order("created_at", desc=True)
-        )
+        
+        # Build query dynamically
+        query = supabase.table("budget_records").select("*")
+        
+        if category_id:
+            query = query.eq("category_id", category_id)
+        if tipe:
+            query = query.eq("tipe", tipe)
+        if start_date:
+            query = query.gte("created_at", start_date)
+        if end_date:
+            query = query.lte("created_at", end_date)
+            
+        query = query.order("created_at", desc=True)
         
         response = safe_supabase_call(lambda: query.execute())
         records = response.data
-        
-        if category_id:
-            records = [r for r in records if r.get("category_id") == category_id]
-        if tipe:
-            records = [r for r in records if r.get("tipe") == tipe]
-        if start_date:
-            records = [r for r in records if r.get("created_at", "") >= start_date]
-        if end_date:
-            records = [r for r in records if r.get("created_at", "") <= end_date]
         
         return {"status": "success", "data": records}
     except Exception as e:
