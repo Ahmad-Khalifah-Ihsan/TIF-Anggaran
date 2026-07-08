@@ -139,9 +139,17 @@ app.add_middleware(RequestLoggingMiddleware)
 # CORS Configuration - Ganti dengan domain production Anda
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
+# Jika ALLOWED_ORIGINS mengandung "*" dan credentials=True,
+# kita gunakan regex agar bisa menerima origin dinamis secara aman.
+allow_origin_regex = None
+if "*" in ALLOWED_ORIGINS or "" in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS = []
+    allow_origin_regex = r"https?://.*"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
