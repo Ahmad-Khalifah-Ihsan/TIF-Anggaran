@@ -12,7 +12,9 @@ import {
   Eye
 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000';
+let rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:9000';
+rawUrl = rawUrl.replace(/\/+$/, '');
+const API_BASE_URL = rawUrl;
 
 interface BudgetCategory {
   id: string;
