@@ -1,5 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://124.156.204.209';
-
+let rawUrl = import.meta.env.VITE_API_URL || 'http://124.156.204.209';
+if (rawUrl.endsWith('/')) {
+  rawUrl = rawUrl.slice(0, -1);
+}
+const API_BASE_URL = rawUrl;
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('auth_token');
   return {
