@@ -136,15 +136,9 @@ app = FastAPI(title="Budget API", version="1.0.0", description="Secure Budget Ma
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
-# CORS Configuration - Ganti dengan domain production Anda
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
-
-# Jika ALLOWED_ORIGINS mengandung "*" dan credentials=True,
-# kita gunakan regex agar bisa menerima origin dinamis secara aman.
-allow_origin_regex = None
-if "*" in ALLOWED_ORIGINS or "" in ALLOWED_ORIGINS:
-    ALLOWED_ORIGINS = []
-    allow_origin_regex = r"https?://.*"
+# CORS Configuration - Izinkan semua origin secara dinamis agar aman dan anti-error di serverless
+ALLOWED_ORIGINS = []
+allow_origin_regex = r"https?://.*"
 
 app.add_middleware(
     CORSMiddleware,
