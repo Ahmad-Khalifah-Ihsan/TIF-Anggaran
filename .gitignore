@@ -1,0 +1,29 @@
+# Node dependencies
+node_modules/
+frontend/node_modules/
+package-lock.json
+frontend/package-lock.json
+
+# Build outputs
+dist/
+frontend/dist/
+build/
+
+# Python virtual environment & cache
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment files
+.env
+backend/.env
+frontend/.env
+.env.local
+
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
