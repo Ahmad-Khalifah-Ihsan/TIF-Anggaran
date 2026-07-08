@@ -1,7 +1,5 @@
 let rawUrl = import.meta.env.VITE_API_URL || 'http://124.156.204.209';
-if (rawUrl.endsWith('/')) {
-  rawUrl = rawUrl.slice(0, -1);
-}
+rawUrl = rawUrl.replace(/\/+$/, '');
 const API_BASE_URL = rawUrl;
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('auth_token');
@@ -18,7 +16,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
     window.location.href = '/login';
     throw new Error('Sesi habis');
   }
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
     throw new Error(error.detail || 'Request failed');
@@ -186,7 +184,7 @@ export const budgetManagementApi = {
     if (params?.start_date) searchParams.append('start_date', params.start_date);
     if (params?.end_date) searchParams.append('end_date', params.end_date);
     if (searchParams.toString()) url += '?' + searchParams.toString();
-    
+
     const response = await fetch(url, {
       headers: getAuthHeaders(),
     });
