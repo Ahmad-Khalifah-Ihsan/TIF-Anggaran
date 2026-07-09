@@ -87,6 +87,12 @@ class MonthlySummaryUpdate(BaseModel):
     total_keluar: Optional[float] = None
     keterangan: Optional[str] = None
 
+class BudgetAllocationCreateOrUpdate(BaseModel):
+    category_id: str
+    tahun: int
+    bulan: int
+    jumlah_anggaran: float
+
 def safe_supabase_call(func, *args, max_retries=3, **kwargs):
     last_error = None
     for attempt in range(max_retries):
@@ -271,26 +277,59 @@ async def force_delete_budget_category(category_id: str, current_user = Depends(
 # ============== EXISTING ENDPOINTS ==============
 
 @router.get("/summary")
-async def get_budget_summary(current_user = Depends(get_current_user)):
+async def get_budget_summary(
+    bulan: Optional[int] = None,
+    tahun: Optional[int] = None,
+    current_user = Depends(get_current_user)
+):
     try:
         supabase: Client = safe_supabase_call(get_supabase_service_client)
         categories = safe_supabase_call(
             lambda: supabase.table("budget_categories").select("*").eq("is_active", True).order("nama").execute()
         )
         
+        # Determine if we have a monthly filter
+        has_monthly_filter = bulan is not None and tahun is not None
+        
+        # Build date ranges if filtered
+        start_date = None
+        end_date = None
+        if has_monthly_filter:
+            import calendar
+            start_date = f"{tahun}-{bulan:02d}-01T00:00:00"
+            _, last_day = calendar.monthrange(tahun, bulan)
+            end_date = f"{tahun}-{bulan:02d}-{last_day:02d}T23:59:59"
+            
         summaries = []
         for cat in categories.data:
-            masuk = safe_supabase_call(
-                lambda: supabase.table("budget_records").select("jumlah").eq("category_id", cat["id"]).eq("tipe", "masuk").execute()
-            )
+            # Query incoming transactions
+            query_masuk = supabase.table("budget_records").select("jumlah").eq("category_id", cat["id"]).eq("tipe", "masuk")
+            if has_monthly_filter:
+                query_masuk = query_masuk.gte("created_at", start_date).lte("created_at", end_date)
+            masuk = safe_supabase_call(lambda: query_masuk.execute())
             total_masuk = sum(r["jumlah"] for r in masuk.data) if masuk.data else 0
             
-            keluar = safe_supabase_call(
-                lambda: supabase.table("budget_records").select("jumlah").eq("category_id", cat["id"]).eq("tipe", "keluar").execute()
-            )
+            # Query outgoing transactions
+            query_keluar = supabase.table("budget_records").select("jumlah").eq("category_id", cat["id"]).eq("tipe", "keluar")
+            if has_monthly_filter:
+                query_keluar = query_keluar.gte("created_at", start_date).lte("created_at", end_date)
+            keluar = safe_supabase_call(lambda: query_keluar.execute())
             total_keluar = sum(r["jumlah"] for r in keluar.data) if keluar.data else 0
             
-            saldo_awal = cat.get("saldo_awal") or 0
+            # Saldo awal
+            if has_monthly_filter:
+                # Query monthly allocation
+                allocation = safe_supabase_call(
+                    lambda: supabase.table("budget_allocations")
+                    .select("jumlah_anggaran")
+                    .eq("category_id", cat["id"])
+                    .eq("tahun", tahun)
+                    .eq("bulan", bulan)
+                    .execute()
+                )
+                saldo_awal = float(allocation.data[0]["jumlah_anggaran"]) if allocation.data else 0.0
+            else:
+                saldo_awal = float(cat.get("saldo_awal") or 0.0)
             
             summaries.append({
                 "category_id": cat["id"],
@@ -736,6 +775,69 @@ async def get_monthly_summary_history(tahun: int, current_user = Depends(get_cur
         }
     except Exception as e:
         logger.error(f"Get monthly summary history error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan server")
+
+@router.post("/allocations")
+async def upsert_budget_allocation(
+    request: BudgetAllocationCreateOrUpdate,
+    current_user = Depends(get_current_user)
+):
+    try:
+        supabase: Client = safe_supabase_call(get_supabase_service_client)
+        
+        # Validate month
+        if request.bulan < 1 or request.bulan > 12:
+            raise HTTPException(status_code=400, detail="Bulan harus antara 1-12")
+            
+        # Check if category exists
+        cat = safe_supabase_call(
+            lambda: supabase.table("budget_categories").select("id").eq("id", request.category_id).execute()
+        )
+        if not cat.data:
+            raise HTTPException(status_code=404, detail="Kategori tidak ditemukan")
+            
+        # Check if it already exists
+        existing = safe_supabase_call(
+            lambda: supabase.table("budget_allocations")
+            .select("id")
+            .eq("category_id", request.category_id)
+            .eq("tahun", request.tahun)
+            .eq("bulan", request.bulan)
+            .execute()
+        )
+        
+        payload = {
+            "category_id": request.category_id,
+            "tahun": request.tahun,
+            "bulan": request.bulan,
+            "jumlah_anggaran": request.jumlah_anggaran,
+            "updated_at": datetime.now().astimezone().isoformat()
+        }
+        
+        if existing.data:
+            # Update
+            response = safe_supabase_call(
+                lambda: supabase.table("budget_allocations")
+                .update(payload)
+                .eq("id", existing.data[0]["id"])
+                .execute()
+            )
+        else:
+            # Insert
+            response = safe_supabase_call(
+                lambda: supabase.table("budget_allocations")
+                .insert(payload)
+                .execute()
+            )
+            
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Gagal menyimpan alokasi anggaran")
+            
+        return {"status": "success", "data": response.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Upsert budget allocation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Terjadi kesalahan server")
 
 

@@ -415,6 +415,11 @@ async def reset_database(current_user = Depends(require_admin)):
             lambda: supabase.table("monthly_summary").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
         )
         
+        # 1b. Delete all records from budget_allocations
+        safe_supabase_call(
+            lambda: supabase.table("budget_allocations").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        )
+        
         # 2. Delete all records from budget_records
         safe_supabase_call(
             lambda: supabase.table("budget_records").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()

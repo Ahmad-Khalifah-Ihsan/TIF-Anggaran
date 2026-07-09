@@ -162,9 +162,24 @@ export const budgetManagementApi = {
     return handleResponse<any>(response);
   },
 
-  async getSummary() {
-    const response = await fetch(`${API_BASE_URL}/api/v1/budget/summary`, {
+  async getSummary(bulan?: number | null, tahun?: number | null) {
+    let url = `${API_BASE_URL}/api/v1/budget/summary`;
+    const params = new URLSearchParams();
+    if (bulan !== undefined && bulan !== null) params.append('bulan', bulan.toString());
+    if (tahun !== undefined && tahun !== null) params.append('tahun', tahun.toString());
+    if (params.toString()) url += '?' + params.toString();
+
+    const response = await fetch(url, {
       headers: getAuthHeaders(),
+    });
+    return handleResponse<any>(response);
+  },
+
+  async upsertBudgetAllocation(data: { category_id: string; tahun: number; bulan: number; jumlah_anggaran: number }) {
+    const response = await fetch(`${API_BASE_URL}/api/v1/budget/allocations`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
     });
     return handleResponse<any>(response);
   },
