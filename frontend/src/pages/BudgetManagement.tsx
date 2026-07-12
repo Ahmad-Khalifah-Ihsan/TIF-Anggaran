@@ -146,6 +146,7 @@ export default function BudgetManagement() {
   const [showSaldoModal, setShowSaldoModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<BudgetCategory | null>(null);
   const [viewingEvidence, setViewingEvidence] = useState<string | null>(null);
+  const [evidenceBlobUrl, setEvidenceBlobUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'transaksi' | 'riwayat'>('transaksi');
   
   const [filterStartDate, setFilterStartDate] = useState('');
@@ -486,33 +487,58 @@ export default function BudgetManagement() {
     setSelectAll(!selectAll);
   };
 
-  const loadImageToBase64 = (src: string): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const img = document.createElement('img');
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxW = 1280; // Diubah ke 720p (lebar maks 1280) untuk efisiensi ukuran file PDF
-        const maxH = 720;  // Diubah ke 720p (tinggi maks 720) untuk efisiensi ukuran file PDF
-        let w = img.width;
-        let h = img.height;
-        if (w > maxW) { h = (h / w) * maxW; w = maxW; }
-        if (h > maxH) { w = (w / h) * maxH; h = maxH; }
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(0, 0, w, h);
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.9)); // Kualitas tetap 0.9 agar tidak pecah/blur
-        } else {
-          resolve(null);
+  const handleViewEvidence = async (url: string) => {
+    if (!url.startsWith('http') || url.includes('ngrok-free.dev') || url.includes('124.156.204.209')) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+        if (response.ok) {
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          setEvidenceBlobUrl(blobUrl);
+          setViewingEvidence(blobUrl);
+          return;
         }
-      };
-      img.onerror = () => resolve(null);
-      img.src = src;
-    });
+      } catch (e) {
+        console.error("Failed to fetch evidence blob:", e);
+      }
+    }
+    setViewingEvidence(url);
+  };
+
+  const handleCloseEvidence = () => {
+    if (evidenceBlobUrl) {
+      URL.revokeObjectURL(evidenceBlobUrl);
+      setEvidenceBlobUrl(null);
+    }
+    setViewingEvidence(null);
+  };
+
+  const loadImageToBase64 = async (src: string): Promise<string | null> => {
+    try {
+      const response = await fetch(src, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.error("Failed to load image to base64:", e);
+      return null;
+    }
   };
 
   const generateTransactionBlock = async (doc: jsPDF, transaction: Transaction, category: BudgetCategory, startY: number) => {
@@ -968,7 +994,7 @@ export default function BudgetManagement() {
                             <div className="flex items-center gap-2 mt-2">
                               {t.evidence_url && (
                                 <>
-                                  <button onClick={() => setViewingEvidence(t.evidence_url!.startsWith('http') ? t.evidence_url : `${API_BASE_URL}${t.evidence_url}`)} className="flex items-center gap-1 text-xs text-primary hover:underline"><Eye size={12} />Lihat Bukti</button>
+                                  <button onClick={() => handleViewEvidence(t.evidence_url!.startsWith('http') ? t.evidence_url : `${API_BASE_URL}${t.evidence_url}`)} className="flex items-center gap-1 text-xs text-primary hover:underline"><Eye size={12} />Lihat Bukti</button>
                                   <button onClick={() => selectedCategory && handleDownloadEvidence(t, selectedCategory)} className="flex items-center gap-1 text-xs text-green-400 hover:underline"><Download size={12} />Download</button>
                                 </>
                               )}
@@ -1018,8 +1044,8 @@ export default function BudgetManagement() {
       )}
 
       {viewingEvidence && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setViewingEvidence(null)}>
-          <button className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30" onClick={() => setViewingEvidence(null)}><X size={24} className="text-white" /></button>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={handleCloseEvidence}>
+          <button className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30" onClick={handleCloseEvidence}><X size={24} className="text-white" /></button>
           <img src={viewingEvidence} alt="Evidence" className="max-w-full max-h-[90vh] object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}

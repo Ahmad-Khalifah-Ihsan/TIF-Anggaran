@@ -62,6 +62,37 @@ export default function MonthlySummary() {
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [successMsg, setSuccessMsg] = useState('');
   const [viewingEvidence, setViewingEvidence] = useState<string | null>(null);
+  const [evidenceBlobUrl, setEvidenceBlobUrl] = useState<string | null>(null);
+
+  const handleViewEvidence = async (url: string) => {
+    if (!url.startsWith('http') || url.includes('ngrok-free.dev') || url.includes('124.156.204.209')) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+        if (response.ok) {
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          setEvidenceBlobUrl(blobUrl);
+          setViewingEvidence(blobUrl);
+          return;
+        }
+      } catch (e) {
+        console.error("Failed to fetch evidence blob:", e);
+      }
+    }
+    setViewingEvidence(url);
+  };
+
+  const handleCloseEvidence = () => {
+    if (evidenceBlobUrl) {
+      URL.revokeObjectURL(evidenceBlobUrl);
+      setEvidenceBlobUrl(null);
+    }
+    setViewingEvidence(null);
+  };
 
   useEffect(() => {
     fetchData();
@@ -72,12 +103,12 @@ export default function MonthlySummary() {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setShowModal(false);
-        setViewingEvidence(null);
+        handleCloseEvidence();
       }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [showModal, viewingEvidence]);
+  }, [showModal, viewingEvidence, evidenceBlobUrl]);
 
   const fetchData = async () => {
     try {
@@ -316,7 +347,7 @@ export default function MonthlySummary() {
                           )}
                           {tx.evidence_url && (
                             <button
-                              onClick={() => setViewingEvidence(tx.evidence_url!.startsWith('http') ? tx.evidence_url : `${API_BASE_URL}${tx.evidence_url}`)}
+                              onClick={() => handleViewEvidence(tx.evidence_url!.startsWith('http') ? tx.evidence_url : `${API_BASE_URL}${tx.evidence_url}`)}
                               className="flex items-center gap-1 text-xs text-primary hover:underline mt-2"
                             >
                               <Eye size={12} />Lihat Bukti
@@ -357,7 +388,7 @@ export default function MonthlySummary() {
                           )}
                           {tx.evidence_url && (
                             <button
-                              onClick={() => setViewingEvidence(tx.evidence_url!.startsWith('http') ? tx.evidence_url : `${API_BASE_URL}${tx.evidence_url}`)}
+                              onClick={() => handleViewEvidence(tx.evidence_url!.startsWith('http') ? tx.evidence_url : `${API_BASE_URL}${tx.evidence_url}`)}
                               className="flex items-center gap-1 text-xs text-primary hover:underline mt-2"
                             >
                               <Eye size={12} />Lihat Bukti
@@ -408,11 +439,11 @@ export default function MonthlySummary() {
       {viewingEvidence && (
         <div 
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" 
-          onClick={() => setViewingEvidence(null)}
+          onClick={handleCloseEvidence}
         >
           <button 
             className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors"
-            onClick={() => setViewingEvidence(null)}
+            onClick={handleCloseEvidence}
           >
             <X size={24} className="text-white" />
           </button>
