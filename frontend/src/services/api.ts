@@ -5,6 +5,7 @@ function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('auth_token');
   return {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
   };
 }
@@ -28,7 +29,10 @@ export const authApi = {
   async login(username: string, password: string) {
     const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      },
       body: JSON.stringify({ username, password }),
     });
     return handleResponse<any>(response);
@@ -37,7 +41,10 @@ export const authApi = {
   async register(data: { username: string; password: string; nama_lengkap?: string; telegram_id?: string }) {
     const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      },
       body: JSON.stringify(data),
     });
     return handleResponse<any>(response);
@@ -218,6 +225,7 @@ export const budgetManagementApi = {
     const response = await fetch(`${API_BASE_URL}/api/v1/budget/records`, {
       method: 'POST',
       headers: {
+        'ngrok-skip-browser-warning': 'true',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
       body: formData,
