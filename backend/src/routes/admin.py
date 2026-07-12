@@ -430,19 +430,22 @@ async def reset_database(current_user = Depends(require_admin)):
             lambda: supabase.table("budget_categories").update({"saldo_awal": 0}).neq("id", "00000000-0000-0000-0000-000000000000").execute()
         )
         
-        # 4. Attempt to clean up Supabase Storage
-        STORAGE_BUCKET = "Database anggaran Infranexia"
+        # 4. Attempt to clean up local uploads directory
         try:
-            # List files in the 'evidence' folder
-            files = supabase.storage.from_(STORAGE_BUCKET).list("evidence")
-            if files:
-                file_paths = [f"evidence/{f['name']}" for f in files if f['name'] != '.emptyFolderPlaceholder']
-                if file_paths:
-                    supabase.storage.from_(STORAGE_BUCKET).remove(file_paths)
-                    logger.info(f"Cleaned up {len(file_paths)} files from storage bucket")
+            import os
+            uploads_dir = "uploads/evidence"
+            if os.path.exists(uploads_dir):
+                count = 0
+                for filename in os.listdir(uploads_dir):
+                    file_path = os.path.join(uploads_dir, filename)
+                    # Don't delete .gitkeep or directories if any, only transaction files
+                    if os.path.isfile(file_path) and not filename.startswith('.'):
+                        os.remove(file_path)
+                        count += 1
+                logger.info(f"Cleaned up {count} files from local uploads directory")
         except Exception as storage_err:
-            # We don't want to fail the whole DB reset if storage cleanup fails
-            logger.warning(f"Failed to clear storage bucket during reset: {str(storage_err)}")
+            # We don't want to fail the whole DB reset if local cleanup fails
+            logger.warning(f"Failed to clear local uploads directory during reset: {str(storage_err)}")
             
         logger.info(f"Database fully reset by admin: {current_user['username']}")
         

@@ -156,6 +156,7 @@ try:
     if not os.path.exists("uploads/evidence"):
         os.makedirs("uploads/evidence")
     app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+    app.mount("/api/uploads", StaticFiles(directory="uploads"), name="api_uploads")
 except Exception as uploads_err:
     logger.warning(f"Could not initialize local uploads directory: {str(uploads_err)}")
 

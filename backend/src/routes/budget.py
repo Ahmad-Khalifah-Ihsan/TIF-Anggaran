@@ -467,31 +467,23 @@ async def create_budget_record(
             # Generate unique filename
             filename = f"{uuid.uuid4()}.{ext}"
             
-            # Upload to Supabase Storage
-            storage_path = f"evidence/{filename}"
+            # Save locally on the VPS disk
+            file_path = f"uploads/evidence/{filename}"
             try:
-                # Log available buckets for debugging
-                buckets = supabase.storage.list_buckets()
-                logger.info(f"Available buckets: {[b.name for b in buckets]}")
+                # Ensure local directory exists
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 
-                upload_result = supabase.storage.from_(STORAGE_BUCKET).upload(
-                    storage_path,
-                    content,
-                    {"content-type": content_type}
-                )
-                # Get public URL
-                evidence_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
+                # Write files
+                with open(file_path, "wb") as f:
+                    f.write(content)
+                
+                # Use relative URL prefix '/api/uploads/evidence/'
+                evidence_url = f"/api/uploads/evidence/{filename}"
                 evidence_filename = evidence.filename
-                logger.info(f"Uploaded evidence to Supabase Storage: {evidence_url}")
-            except Exception as storage_error:
-                logger.error(f"Storage upload failed: {str(storage_error)}")
-                # More detailed error logging
-                try:
-                    buckets = supabase.storage.list_buckets()
-                    logger.error(f"Available buckets when error: {[b.name for b in buckets]}")
-                except Exception as bucket_error:
-                    logger.error(f"Failed to list buckets: {str(bucket_error)}")
-                raise HTTPException(status_code=500, detail="Gagal upload bukti transaksi")
+                logger.info(f"Saved evidence locally: {file_path}")
+            except Exception as local_error:
+                logger.error(f"Local file write failed: {str(local_error)}")
+                raise HTTPException(status_code=500, detail="Gagal menyimpan bukti transaksi di server")
         
         created_by = getattr(current_user, 'username', None) or getattr(current_user, 'sub', 'admin')
         
