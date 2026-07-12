@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
@@ -210,3 +210,35 @@ def security_info():
         },
         "lockout_duration": "15 minutes after 5 failed attempts"
     }
+
+
+# ============== FRONTEND REACT ROUTER SPA ROUTING ==============
+
+# Custom 404 handler to support React Router client-side routing
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc):
+    # If the path starts with /api or /uploads, return a standard 404
+    if request.url.path.startswith("/api") or request.url.path.startswith("/uploads"):
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+    
+    # Path to frontend dist index.html
+    frontend_dist_path = Path(__file__).parent.parent.parent / 'frontend' / 'dist'
+    index_path = frontend_dist_path / 'index.html'
+    
+    if index_path.exists():
+        return FileResponse(index_path)
+    
+    return JSONResponse(status_code=404, content={"detail": "Frontend build not found"})
+
+
+# Mount frontend dist folder at root '/'
+# This must be mounted AFTER all API routers to prevent routing conflicts
+try:
+    frontend_dist_path = Path(__file__).parent.parent.parent / 'frontend' / 'dist'
+    if frontend_dist_path.exists():
+        app.mount("/", StaticFiles(directory=str(frontend_dist_path), html=True), name="frontend")
+        logger.info(f"Successfully mounted frontend static files from: {frontend_dist_path}")
+    else:
+        logger.warning(f"Frontend dist directory not found at: {frontend_dist_path}. Run 'npm run build' in frontend folder.")
+except Exception as fe_err:
+    logger.error(f"Failed to mount frontend directory: {str(fe_err)}")
