@@ -259,6 +259,23 @@ async def force_delete_budget_category(category_id: str, current_user = Depends(
     try:
         supabase: Client = safe_supabase_call(get_supabase_service_client)
         
+        # Get all records for this category to delete their local files before cascade delete
+        records_to_delete = safe_supabase_call(
+            lambda: supabase.table("budget_records").select("evidence_url").eq("category_id", category_id).execute()
+        )
+        if records_to_delete.data:
+            for rec in records_to_delete.data:
+                evidence_url = rec.get("evidence_url")
+                if evidence_url and evidence_url.startswith("/api/uploads/"):
+                    filename = evidence_url.split("/")[-1]
+                    file_path = os.path.join("uploads", "evidence", filename)
+                    if os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                            logger.info(f"Deleted evidence file during force-delete: {file_path}")
+                        except Exception as fe:
+                            logger.error(f"Failed to delete evidence file {file_path} during force-delete: {str(fe)}")
+        
         # Delete the category permanently
         response = safe_supabase_call(
             lambda: supabase.table("budget_categories").delete().eq("id", category_id).execute()
@@ -523,6 +540,19 @@ async def delete_budget_record(record_id: str, current_user = Depends(get_curren
         
         if not response.data:
             raise HTTPException(status_code=404, detail="Record tidak ditemukan")
+        
+        # Delete local file if it exists
+        deleted_record = response.data[0]
+        evidence_url = deleted_record.get("evidence_url")
+        if evidence_url and evidence_url.startswith("/api/uploads/"):
+            filename = evidence_url.split("/")[-1]
+            file_path = os.path.join("uploads", "evidence", filename)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Deleted evidence file: {file_path}")
+                except Exception as fe:
+                    logger.error(f"Failed to delete evidence file {file_path}: {str(fe)}")
         
         return {"status": "success", "message": "Record berhasil dihapus"}
     except HTTPException:
