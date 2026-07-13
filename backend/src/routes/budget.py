@@ -855,6 +855,14 @@ async def upsert_budget_allocation(
         if not response.data:
             raise HTTPException(status_code=500, detail="Gagal menyimpan alokasi anggaran")
             
+        # Update the master category's saldo_awal in budget_categories to match the monthly allocation
+        safe_supabase_call(
+            lambda: supabase.table("budget_categories")
+            .update({"saldo_awal": request.jumlah_anggaran})
+            .eq("id", request.category_id)
+            .execute()
+        )
+            
         return {"status": "success", "data": response.data[0]}
     except HTTPException:
         raise
