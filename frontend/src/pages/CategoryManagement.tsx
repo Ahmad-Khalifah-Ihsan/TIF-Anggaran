@@ -130,7 +130,7 @@ export default function CategoryManagement() {
     setSuccess('');
 
     if (!formData.nama.trim()) {
-      setError('Nama mata anggaran wajib diisi');
+      setError('Nama akun anggaran wajib diisi');
       return;
     }
     if (!formData.kode.trim()) {
@@ -318,7 +318,7 @@ export default function CategoryManagement() {
             <thead className="bg-slate-800/50">
               <tr>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Cost Element</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Nama</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Nama Akun Anggaran</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Deskripsi</th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-slate-300">Saldo Awal</th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-slate-300">Aksi</th>
@@ -422,7 +422,7 @@ export default function CategoryManagement() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Nama Mata Anggaran <span className="text-red-400">*</span>
+                  Nama Akun Anggaran <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
