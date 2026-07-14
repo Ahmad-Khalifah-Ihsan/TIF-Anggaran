@@ -417,7 +417,6 @@ export default function CategoryManagement() {
                   value={formData.kode}
                   onChange={(e) => setFormData({...formData, kode: e.target.value.toUpperCase()})}
                   required
-                  disabled={!!editingCategory}
                 />
               </div>
 

@@ -21,7 +21,12 @@ const Sidebar : React.FC<SidebarProps> = ({ onClose }) => {
     <aside className="w-64 bg-slate-800 min-h-screen flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-slate-700 flex justify-between items-center">
-        <img src="/Logo Solid-Infranexia-dengan Telkom Indonesia V2.png" alt="InfraNexia Logo" className="h-9 w-auto object-contain" />
+        <img 
+          src="/Logo Solid-Infranexia-dengan Telkom Indonesia V2.png" 
+          alt="InfraNexia Logo" 
+          className="w-full max-w-[165px] h-auto object-contain" 
+          style={{ filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.75))' }}
+        />
         <button
           onClick={onClose}
           className="text-slate-400 hover:text-white p-1"

@@ -61,12 +61,17 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8 flex flex-col items-center">
-          <img src="/Logo Solid-Infranexia-dengan Telkom Indonesia V2.png" alt="InfraNexia Logo" className="h-16 w-auto object-contain mb-3" />
-          <p className="text-muted-foreground mt-1">Sistem Biaya Dinas</p>
+          <img 
+            src="/Logo Solid-Infranexia-dengan Telkom Indonesia V2.png" 
+            alt="InfraNexia Logo" 
+            className="w-full max-w-[350px] h-auto object-contain mb-4" 
+            style={{ filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.75))' }}
+          />
+          <p className="text-slate-400 mt-1">Sistem Biaya Dinas</p>
         </div>
 
         {/* Login Card */}
@@ -82,7 +87,7 @@ export default function Login() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <LogIn size={16} />
+              <LogIn className="w-4 h-4" />
               Masuk
             </button>
             <button
@@ -94,16 +99,10 @@ export default function Login() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <UserPlus size={16} />
+              <UserPlus className="w-4 h-4" />
               Daftar
             </button>
           </div>
-
-          {error && (
-            <div className="bg-red-500/20 text-red-400 text-sm p-3 rounded-lg border border-red-500/30 mb-4">
-              {error}
-            </div>
-          )}
 
           {regSuccess ? (
             <div className="text-center py-8">
