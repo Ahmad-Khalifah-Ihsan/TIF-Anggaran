@@ -821,35 +821,14 @@ export default function BudgetManagement() {
 
                   <div>
                     <label className="block text-sm font-medium mb-2">Nominal (Rp)</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        className="flex-1 bg-background border border-border rounded-lg px-4 py-3 text-lg font-mono"
-                        placeholder="0"
-                        value={formData.jumlah}
-                        onChange={(e) => setFormData({...formData, jumlah: formatNumberInput(e.target.value)})}
-                        required
-                      />
-                      <select
-                        className="bg-card border border-border rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer outline-none"
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            setFormData({...formData, jumlah: formatNumberInput(e.target.value)});
-                            e.target.value = '';
-                          }
-                        }}
-                        defaultValue=""
-                      >
-                        <option value="" disabled>Pilih Cepat</option>
-                        <option value="100000">100 Rb</option>
-                        <option value="1000000">1 Jt</option>
-                        <option value="10000000">10 Jt</option>
-                        <option value="100000000">100 Jt</option>
-                        <option value="1000000000">1 M</option>
-                        <option value="10000000000">10 M</option>
-                        <option value="100000000000">100 M</option>
-                      </select>
-                    </div>
+                    <input
+                      type="text"
+                      className="w-full bg-background border border-border rounded-lg px-4 py-3 text-lg font-mono"
+                      placeholder="0"
+                      value={formData.jumlah}
+                      onChange={(e) => setFormData({...formData, jumlah: formatNumberInput(e.target.value)})}
+                      required
+                    />
                   </div>
 
                   <div>

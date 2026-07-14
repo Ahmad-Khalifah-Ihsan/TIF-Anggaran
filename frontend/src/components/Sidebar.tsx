@@ -11,7 +11,7 @@ const Sidebar : React.FC<SidebarProps> = ({ onClose }) => {
     const {user, logout} = useAuth();
 
     const menuItems = [
-        {path: "/", label: 'Dashboard sisa saldo', icon: '◆'},
+        {path: "/", label: 'Dashboard Sisa Saldo', icon: '◆'},
         {path: "/categories", label: 'Saldo bulanan', icon: '☰'},
         {path: "/monthly-summary", label: 'Ringkasan Bulanan', icon: '📊'},
         { label: "Pengaturan", path: "/settings", icon: "⚙️" },
@@ -21,12 +21,7 @@ const Sidebar : React.FC<SidebarProps> = ({ onClose }) => {
     <aside className="w-64 bg-slate-800 min-h-screen flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-slate-700 flex justify-between items-center">
-        <h1 className="text-xl font-bold">
-          <span className="bg-gradient-to-r from-red-500 via-blue-500 to-gray-400 bg-clip-text text-transparent">
-            InfraNexia
-          </span>
-          <span className="block text-sm font-medium text-slate-300">Budgeting</span>
-        </h1>
+        <img src="/Logo Solid-Infranexia-dengan Telkom Indonesia V2.png" alt="InfraNexia Logo" className="h-9 w-auto object-contain" />
         <button
           onClick={onClose}
           className="text-slate-400 hover:text-white p-1"
