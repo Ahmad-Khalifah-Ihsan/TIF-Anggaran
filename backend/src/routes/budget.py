@@ -116,13 +116,42 @@ def safe_supabase_call(func, *args, max_retries=3, **kwargs):
 
 @router.get("/categories")
 @limiter.limit("60/minute")
-async def get_budget_categories(request: Request, current_user = Depends(get_current_user)):
+async def get_budget_categories(
+    request: Request,
+    bulan: Optional[int] = None,
+    tahun: Optional[int] = None,
+    current_user = Depends(get_current_user)
+):
     try:
         supabase: Client = safe_supabase_call(get_supabase_service_client)
         response = safe_supabase_call(
             lambda: supabase.table("budget_categories").select("*").order("nama").execute()
         )
-        return {"status": "success", "data": response.data}
+        
+        categories = response.data
+        
+        if bulan is not None and tahun is not None:
+            allocations_res = safe_supabase_call(
+                lambda: supabase.table("budget_allocations")
+                .select("category_id, jumlah_anggaran")
+                .eq("bulan", bulan)
+                .eq("tahun", tahun)
+                .execute()
+            )
+            
+            allocations_map = {
+                item["category_id"]: item["jumlah_anggaran"]
+                for item in allocations_res.data
+            } if allocations_res.data else {}
+            
+            for cat in categories:
+                cat_id = cat["id"]
+                if cat_id in allocations_map:
+                    cat["saldo_awal"] = allocations_map[cat_id]
+                else:
+                    cat["saldo_awal"] = 0.0
+                    
+        return {"status": "success", "data": categories}
     except Exception as e:
         logger.error(f"Get categories error: {str(e)}")
         raise HTTPException(status_code=500, detail="Terjadi kesalahan server")
@@ -146,6 +175,8 @@ async def get_budget_category(category_id: str, current_user = Depends(get_curre
 @router.post("/categories")
 async def create_budget_category(
     request: CategoryCreate,
+    bulan: Optional[int] = None,
+    tahun: Optional[int] = None,
     current_user = Depends(get_current_user)
 ):
     try:
@@ -172,8 +203,27 @@ async def create_budget_category(
         
         if not response.data:
             raise HTTPException(status_code=500, detail="Gagal membuat kategori")
+            
+        category_data = response.data[0]
         
-        return {"status": "success", "data": response.data[0]}
+        # If saldo_awal is set and > 0, auto-create a budget allocation for the specified or current month and year
+        if request.saldo_awal and request.saldo_awal > 0:
+            target_month = bulan if bulan is not None else datetime.now().month
+            target_year = tahun if tahun is not None else datetime.now().year
+            
+            allocation_payload = {
+                "category_id": category_data["id"],
+                "tahun": target_year,
+                "bulan": target_month,
+                "jumlah_anggaran": request.saldo_awal,
+                "updated_at": datetime.now().astimezone().isoformat()
+            }
+            
+            safe_supabase_call(
+                lambda: supabase.table("budget_allocations").insert(allocation_payload).execute()
+            )
+        
+        return {"status": "success", "data": category_data}
     except HTTPException:
         raise
     except Exception as e:
@@ -184,6 +234,8 @@ async def create_budget_category(
 async def update_budget_category(
     category_id: str,
     request: CategoryUpdate,
+    bulan: Optional[int] = None,
+    tahun: Optional[int] = None,
     current_user = Depends(get_current_user)
 ):
     try:
@@ -213,7 +265,49 @@ async def update_budget_category(
             lambda: supabase.table("budget_categories").update(update_data).eq("id", category_id).execute()
         )
         
+        # If monthly params are passed and saldo_awal is updated, upsert allocation
+        if bulan is not None and tahun is not None and request.saldo_awal is not None:
+            # Check if allocation already exists
+            alloc_check = safe_supabase_call(
+                lambda: supabase.table("budget_allocations")
+                .select("id")
+                .eq("category_id", category_id)
+                .eq("bulan", bulan)
+                .eq("tahun", tahun)
+                .execute()
+            )
+            
+            if alloc_check.data:
+                # Update
+                safe_supabase_call(
+                    lambda: supabase.table("budget_allocations")
+                    .update({
+                        "jumlah_anggaran": request.saldo_awal,
+                        "updated_at": datetime.now().astimezone().isoformat()
+                    })
+                    .eq("id", alloc_check.data[0]["id"])
+                    .execute()
+                )
+            else:
+                # Insert
+                safe_supabase_call(
+                    lambda: supabase.table("budget_allocations")
+                    .insert({
+                        "category_id": category_id,
+                        "bulan": bulan,
+                        "tahun": tahun,
+                        "jumlah_anggaran": request.saldo_awal,
+                        "updated_at": datetime.now().astimezone().isoformat()
+                    })
+                    .execute()
+                )
+        
         return {"status": "success", "data": response.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update category error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan server")
     except HTTPException:
         raise
     except Exception as e:

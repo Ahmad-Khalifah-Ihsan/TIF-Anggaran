@@ -9,7 +9,8 @@ import {
   Save, 
   CheckCircle,
   AlertCircle,
-  Settings
+  Settings,
+  Filter
 } from 'lucide-react';
 
 interface BudgetCategory {
@@ -28,6 +29,21 @@ interface CategoryFormData {
   saldo_awal: string;
 }
 
+const BULAN_OPTIONS = [
+  { value: 1, label: 'Januari' },
+  { value: 2, label: 'Februari' },
+  { value: 3, label: 'Maret' },
+  { value: 4, label: 'April' },
+  { value: 5, label: 'Mei' },
+  { value: 6, label: 'Juni' },
+  { value: 7, label: 'Juli' },
+  { value: 8, label: 'Agustus' },
+  { value: 9, label: 'September' },
+  { value: 10, label: 'Oktober' },
+  { value: 11, label: 'November' },
+  { value: 12, label: 'Desember' }
+];
+
 export default function CategoryManagement() {
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,15 +59,17 @@ export default function CategoryManagement() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [filterBulan, setFilterBulan] = useState<number>(new Date().getMonth() + 1);
+  const [filterTahun, setFilterTahun] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [filterBulan, filterTahun]);
 
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await budgetManagementApi.getCategories();
+      const response = await budgetManagementApi.getCategories(filterBulan, filterTahun);
       if (response.status === 'success') {
         setCategories(response.data);
       }
@@ -116,7 +134,7 @@ export default function CategoryManagement() {
       return;
     }
     if (!formData.kode.trim()) {
-      setError('Kode mata anggaran wajib diisi');
+      setError('Cost Element wajib diisi');
       return;
     }
 
@@ -127,16 +145,14 @@ export default function CategoryManagement() {
     };
 
     const saldoAwal = parseFormattedNumber(formData.saldo_awal);
-    if (!editingCategory || !editingCategory.saldo_awal) {
-      payload.saldo_awal = saldoAwal;
-    }
+    payload.saldo_awal = saldoAwal;
 
     try {
       setSubmitting(true);
       
       if (editingCategory) {
         // Update existing category
-        const result = await budgetManagementApi.updateCategory(editingCategory.id, payload);
+        const result = await budgetManagementApi.updateCategory(editingCategory.id, payload, filterBulan, filterTahun);
         if (result.status === 'success') {
           setSuccess('Mata anggaran berhasil diupdate!');
           fetchCategories();
@@ -146,7 +162,7 @@ export default function CategoryManagement() {
         }
       } else {
         // Create new category
-        const result = await budgetManagementApi.createCategory(payload);
+        const result = await budgetManagementApi.createCategory(payload, filterBulan, filterTahun);
         if (result.status === 'success') {
           setSuccess('Mata anggaran berhasil dibuat!');
           fetchCategories();
@@ -210,9 +226,9 @@ export default function CategoryManagement() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <List className="text-primary" size={28} />
-            Kelola Mata Anggaran
+            Saldo Bulanan
           </h1>
-          <p className="text-muted-foreground">Kelola mata anggaran untuk penganggaran</p>
+          <p className="text-muted-foreground">Kelola saldo awal mata anggaran per bulan</p>
         </div>
         <button 
           onClick={handleOpenCreate}
@@ -221,6 +237,36 @@ export default function CategoryManagement() {
           <Plus size={18} />
           Tambah Mata Anggaran
         </button>
+      </div>
+
+      {/* Month & Year Filter for Monthly Balance */}
+      <div className="flex flex-wrap items-center gap-3 mb-6 bg-secondary/20 p-4 rounded-xl border border-border">
+        <span className="text-sm font-medium flex items-center gap-2 text-foreground">
+          <Filter size={16} className="text-primary" />
+          Periode Anggaran:
+        </span>
+        <select
+          value={filterBulan}
+          onChange={(e) => {
+            setFilterBulan(parseInt(e.target.value));
+          }}
+          className="bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none cursor-pointer hover:border-primary/50 transition-colors text-foreground"
+        >
+          {BULAN_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <select
+          value={filterTahun}
+          onChange={(e) => {
+            setFilterTahun(parseInt(e.target.value));
+          }}
+          className="bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none cursor-pointer hover:border-primary/50 transition-colors text-foreground"
+        >
+          {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - 40 + i).map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -271,7 +317,7 @@ export default function CategoryManagement() {
           <table className="w-full">
             <thead className="bg-slate-800/50">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Kode</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Cost Element</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Nama</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Deskripsi</th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-slate-300">Saldo Awal</th>
@@ -362,12 +408,12 @@ export default function CategoryManagement() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Kode <span className="text-red-400">*</span>
+                  Cost Element <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   className="w-full bg-background border border-border rounded-lg px-4 py-2.5 font-mono uppercase"
-                  placeholder="Contoh: A.1"
+                  placeholder="Contoh: 51321001"
                   value={formData.kode}
                   onChange={(e) => setFormData({...formData, kode: e.target.value.toUpperCase()})}
                   required
@@ -402,20 +448,18 @@ export default function CategoryManagement() {
                 />
               </div>
 
-              {!editingCategory && (
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Saldo Awal
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full bg-background border border-border rounded-lg px-4 py-2.5 font-mono"
-                    placeholder="0"
-                    value={formatNumberInput(formData.saldo_awal)}
-                    onChange={(e) => setFormData({...formData, saldo_awal: formatNumberInput(e.target.value)})}
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Saldo Awal
+                </label>
+                <input
+                  type="text"
+                  className="w-full bg-background border border-border rounded-lg px-4 py-2.5 font-mono"
+                  placeholder="0"
+                  value={formatNumberInput(formData.saldo_awal)}
+                  onChange={(e) => setFormData({...formData, saldo_awal: formatNumberInput(e.target.value)})}
+                />
+              </div>
 
               <div className="flex gap-3 pt-2">
                 <button

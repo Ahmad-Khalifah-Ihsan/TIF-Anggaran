@@ -11,8 +11,8 @@ const Sidebar : React.FC<SidebarProps> = ({ onClose }) => {
     const {user, logout} = useAuth();
 
     const menuItems = [
-        {path: "/", label: 'Budget Management', icon: '◆'},
-        {path: "/categories", label: 'Kelola Mata Anggaran', icon: '☰'},
+        {path: "/", label: 'Dashboard sisa saldo', icon: '◆'},
+        {path: "/categories", label: 'Saldo bulanan', icon: '☰'},
         {path: "/monthly-summary", label: 'Ringkasan Bulanan', icon: '📊'},
         { label: "Pengaturan", path: "/settings", icon: "⚙️" },
     ];

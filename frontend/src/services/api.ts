@@ -121,8 +121,18 @@ export const userManagementApi = {
 };
 
 export const budgetManagementApi = {
-  async getCategories() {
-    const response = await fetch(`${API_BASE_URL}/api/v1/budget/categories`, {
+  async getCategories(bulan?: number, tahun?: number) {
+    let url = `${API_BASE_URL}/api/v1/budget/categories`;
+    const params = new URLSearchParams();
+    if (bulan !== undefined && tahun !== undefined) {
+      params.append('bulan', bulan.toString());
+      params.append('tahun', tahun.toString());
+    }
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+    const response = await fetch(url, {
       headers: getAuthHeaders(),
     });
     return handleResponse<any>(response);
@@ -135,8 +145,18 @@ export const budgetManagementApi = {
     return handleResponse<any>(response);
   },
 
-  async createCategory(data: { nama: string; kode: string; deskripsi?: string; saldo_awal?: number }) {
-    const response = await fetch(`${API_BASE_URL}/api/v1/budget/categories`, {
+  async createCategory(data: { nama: string; kode: string; deskripsi?: string; saldo_awal?: number }, bulan?: number, tahun?: number) {
+    let url = `${API_BASE_URL}/api/v1/budget/categories`;
+    const params = new URLSearchParams();
+    if (bulan !== undefined && tahun !== undefined) {
+      params.append('bulan', bulan.toString());
+      params.append('tahun', tahun.toString());
+    }
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+    const response = await fetch(url, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -144,8 +164,18 @@ export const budgetManagementApi = {
     return handleResponse<any>(response);
   },
 
-  async updateCategory(categoryId: string, data: { nama?: string; kode?: string; deskripsi?: string; saldo_awal?: number; is_active?: boolean }) {
-    const response = await fetch(`${API_BASE_URL}/api/v1/budget/categories/${categoryId}`, {
+  async updateCategory(categoryId: string, data: { nama?: string; kode?: string; deskripsi?: string; saldo_awal?: number; is_active?: boolean }, bulan?: number, tahun?: number) {
+    let url = `${API_BASE_URL}/api/v1/budget/categories/${categoryId}`;
+    const params = new URLSearchParams();
+    if (bulan !== undefined && tahun !== undefined) {
+      params.append('bulan', bulan.toString());
+      params.append('tahun', tahun.toString());
+    }
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+    const response = await fetch(url, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),

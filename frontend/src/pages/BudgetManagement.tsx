@@ -285,7 +285,16 @@ export default function BudgetManagement() {
     const dd = String(today.getDate()).padStart(2, '0');
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const yyyy = today.getFullYear();
-    setFormData({ tipe: 'keluar', tanggal: `${dd}/${mm}/${yyyy}`, jam: '', jumlah: '', keterangan: '', evidence: null });
+    const hours = String(today.getHours()).padStart(2, '0');
+    const minutes = String(today.getMinutes()).padStart(2, '0');
+    setFormData({ 
+      tipe: 'keluar', 
+      tanggal: `${yyyy}-${mm}-${dd}`, 
+      jam: `${hours}:${minutes}`, 
+      jumlah: '', 
+      keterangan: '', 
+      evidence: null 
+    });
     setFilterStartDate('');
     setFilterEndDate('');
     setSelectedTransactions(new Set());
@@ -320,24 +329,18 @@ export default function BudgetManagement() {
 
     // Validate date correctness
     if (formData.tanggal) {
-      const dateParts = formData.tanggal.split('/');
+      const dateParts = formData.tanggal.split('-');
       if (dateParts.length === 3) {
-        const d = parseInt(dateParts[0]);
+        const y = parseInt(dateParts[0]);
         const m = parseInt(dateParts[1]);
-        const y = parseInt(dateParts[2]);
+        const d = parseInt(dateParts[2]);
         
         if (isNaN(d) || isNaN(m) || isNaN(y) || m < 1 || m > 12 || d < 1 || d > 31 || y < 1900 || y > 2100) {
-          setError('Tanggal tidak valid (DD/MM/YYYY)');
-          return;
-        }
-        
-        const daysInMonth = new Date(y, m, 0).getDate();
-        if (d > daysInMonth) {
-          setError(`Bulan ${dateParts[1]} pada tahun ${y} hanya memiliki ${daysInMonth} hari.`);
+          setError('Tanggal tidak valid');
           return;
         }
       } else {
-        setError('Format tanggal harus DD/MM/YYYY');
+        setError('Format tanggal tidak valid');
         return;
       }
     }
@@ -366,7 +369,10 @@ export default function BudgetManagement() {
       formPayload.append('jumlah', jumlah.toString());
       formPayload.append('keterangan', formData.keterangan || '');
       if (formData.tanggal) {
-        formPayload.append('tanggal', formData.tanggal);
+        const parts = formData.tanggal.split('-');
+        if (parts.length === 3) {
+          formPayload.append('tanggal', `${parts[2]}/${parts[1]}/${parts[0]}`); // Convert to DD/MM/YYYY for backend
+        }
       }
       if (formData.jam) {
         formPayload.append('jam', formData.jam);
@@ -383,7 +389,16 @@ export default function BudgetManagement() {
       const dd = String(today.getDate()).padStart(2, '0');
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const yyyy = today.getFullYear();
-      setFormData({ tipe: 'keluar', tanggal: `${dd}/${mm}/${yyyy}`, jam: '', jumlah: '', keterangan: '', evidence: null });
+      const hours = String(today.getHours()).padStart(2, '0');
+      const minutes = String(today.getMinutes()).padStart(2, '0');
+      setFormData({ 
+        tipe: 'keluar', 
+        tanggal: `${yyyy}-${mm}-${dd}`, 
+        jam: `${hours}:${minutes}`, 
+        jumlah: '', 
+        keterangan: '', 
+        evidence: null 
+      });
       fetchData();
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan');
@@ -717,7 +732,7 @@ export default function BudgetManagement() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Wallet className="text-primary" size={28} />
-            Kelola Anggaran
+            Dashboard Sisa Saldo
           </h1>
           <p className="text-muted-foreground">{categories.length} Mata Anggaran - Pencatatan anggaran</p>
         </div>
@@ -854,12 +869,11 @@ export default function BudgetManagement() {
                         Tanggal Transaksi
                       </label>
                       <input
-                        type="text"
-                        className="w-full bg-background border border-border rounded-lg px-4 py-3 font-mono"
-                        placeholder="DD/MM/YYYY"
+                        type="date"
+                        className="w-full bg-background border border-border rounded-lg px-4 py-3 font-mono text-foreground cursor-pointer"
+                        style={{ colorScheme: 'dark' }}
                         value={formData.tanggal}
-                        onChange={(e) => setFormData({...formData, tanggal: formatTanggalInput(e.target.value)})}
-                        maxLength={10}
+                        onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
                       />
                     </div>
                     <div>
@@ -868,12 +882,11 @@ export default function BudgetManagement() {
                         Jam Transaksi (Opsional)
                       </label>
                       <input
-                        type="text"
-                        className="w-full bg-background border border-border rounded-lg px-4 py-3 font-mono"
-                        placeholder="HH:MM"
+                        type="time"
+                        className="w-full bg-background border border-border rounded-lg px-4 py-3 font-mono text-foreground cursor-pointer"
+                        style={{ colorScheme: 'dark' }}
                         value={formData.jam}
-                        onChange={(e) => setFormData({...formData, jam: formatJamInput(e.target.value)})}
-                        maxLength={5}
+                        onChange={(e) => setFormData({...formData, jam: e.target.value})}
                       />
                     </div>
                   </div>
