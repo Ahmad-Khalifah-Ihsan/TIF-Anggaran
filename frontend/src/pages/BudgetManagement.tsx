@@ -143,7 +143,6 @@ export default function BudgetManagement() {
   const [loading, setLoading] = useState(true);
   
   const [showModal, setShowModal] = useState(false);
-  const [showSaldoModal, setShowSaldoModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<BudgetCategory | null>(null);
   const [viewingEvidence, setViewingEvidence] = useState<string | null>(null);
   const [evidenceBlobUrl, setEvidenceBlobUrl] = useState<string | null>(null);
@@ -165,7 +164,7 @@ export default function BudgetManagement() {
     keterangan: '',
     evidence: null as File | null
   });
-  const [saldoForm, setSaldoForm] = useState({ saldo_awal: '' });
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -304,13 +303,7 @@ export default function BudgetManagement() {
     setShowModal(true);
   };
 
-  const handleOpenSaldoEdit = (category: BudgetCategory, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedCategory(category);
-    const catSummary = getCategorySummary(category.id);
-    setSaldoForm({ saldo_awal: (catSummary.saldo_awal || 0).toString() });
-    setShowSaldoModal(true);
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -407,43 +400,7 @@ export default function BudgetManagement() {
     }
   };
 
-  const handleSaldoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    const newSaldo = parseFormattedNumber(saldoForm.saldo_awal);
-    if (isNaN(newSaldo) || newSaldo < 0) {
-      setError('Saldo harus angka positif');
-      return;
-    }
-    try {
-      setSubmitting(true);
-      
-      let result;
-      if (filterBulan !== null) {
-        result = await budgetManagementApi.upsertBudgetAllocation({
-          category_id: selectedCategory!.id,
-          tahun: filterTahun,
-          bulan: filterBulan,
-          jumlah_anggaran: newSaldo
-        });
-      } else {
-        result = await budgetManagementApi.updateCategory(selectedCategory!.id, { saldo_awal: newSaldo });
-      }
-      
-      if (result.status === 'success' || result.status === 'updated') {
-        setSuccess(filterBulan !== null ? 'Anggaran bulanan berhasil disimpan!' : 'Saldo awal berhasil diupdate!');
-        setShowSaldoModal(false);
-        fetchData();
-      } else {
-        throw new Error(result.detail || 'Gagal update saldo');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan saat update saldo');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
 
   const handleDeleteTransaction = async (transactionId: string) => {
     if (!confirm('Yakin hapus transaksi ini?')) return;
@@ -742,33 +699,7 @@ export default function BudgetManagement() {
         </button>
       </div>
 
-      {/* Month & Year Filter for Budget Allocation */}
-      <div className="flex flex-wrap items-center gap-3 mb-6 bg-secondary/20 p-4 rounded-xl border border-border">
-        <span className="text-sm font-medium flex items-center gap-2 text-foreground">
-          <Filter size={16} className="text-primary" />
-          Periode Anggaran:
-        </span>
-        <select
-          value={filterBulan}
-          onChange={(e) => {
-            setFilterBulan(parseInt(e.target.value));
-          }}
-          className="bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none cursor-pointer hover:border-primary/50 transition-colors text-foreground"
-        >
-          {BULAN_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <select
-          value={filterTahun}
-          onChange={(e) => setFilterTahun(parseInt(e.target.value))}
-          className="bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none cursor-pointer hover:border-primary/50 transition-colors text-foreground"
-        >
-          {Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - 40 + i).map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
-      </div>
+
 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -781,9 +712,6 @@ export default function BudgetManagement() {
               <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-mono bg-primary/20 text-primary px-2 py-0.5 rounded">{category.kode}</span>
-                  <button onClick={(e) => handleOpenSaldoEdit(category, e)} className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors" title="Edit Saldo Awal">
-                    <Settings size={14} />
-                  </button>
                 </div>
                 <h3 className="font-semibold text-sm line-clamp-2 cursor-pointer" title={category.nama}>{category.nama}</h3>
               </div>
@@ -1025,36 +953,7 @@ export default function BudgetManagement() {
         </div>
       )}
 
-      {showSaldoModal && selectedCategory && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowSaldoModal(false)}>
-          <div className="bg-card rounded-xl w-full max-w-md border border-border" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <div>
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Settings size={18} className="text-primary" />
-                  Edit Saldo Awal
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {selectedCategory.nama} ({BULAN_OPTIONS.find(b => b.value === filterBulan)?.label} {filterTahun})
-                </p>
-              </div>
-              <button onClick={() => setShowSaldoModal(false)}><X size={20} /></button>
-            </div>
-            <form onSubmit={handleSaldoSubmit} className="p-4 space-y-4">
-              {error && <div className="bg-red-500/20 text-red-400 text-sm p-3 rounded-lg flex items-center gap-2"><X size={16} />{error}</div>}
-              {success && <div className="bg-green-500/20 text-green-400 text-sm p-3 rounded-lg flex items-center gap-2"><CheckCircle size={16} />{success}</div>}
-              <div>
-                <label className="block text-sm font-medium mb-2">Saldo Awal (Rp)</label>
-                <input type="text" className="w-full bg-background border border-border rounded-lg px-4 py-3 text-lg font-mono text-foreground" placeholder="0" value={formatNumberInput(saldoForm.saldo_awal)} onChange={(e) => setSaldoForm({saldo_awal: formatNumberInput(e.target.value)})} required />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowSaldoModal(false)} className="flex-1 py-3 rounded-lg font-medium bg-secondary border border-border">Batal</button>
-                <button type="submit" disabled={submitting} className="flex-1 py-3 rounded-lg font-medium bg-primary text-white disabled:opacity-50 flex items-center justify-center gap-2">{submitting ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white"></div>Menyimpan...</> : <><Save size={16} />Simpan</>}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+
 
       {viewingEvidence && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={handleCloseEvidence}>

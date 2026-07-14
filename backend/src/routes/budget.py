@@ -399,48 +399,80 @@ async def get_budget_summary(
             lambda: supabase.table("budget_categories").select("*").eq("is_active", True).order("nama").execute()
         )
         
-        # Determine if we have a monthly filter
-        has_monthly_filter = bulan is not None and tahun is not None
+        # Default to current month/year if not provided
+        target_month = bulan if bulan is not None else datetime.now().month
+        target_year = tahun if tahun is not None else datetime.now().year
         
-        # Build date ranges if filtered
-        start_date = None
-        end_date = None
-        if has_monthly_filter:
-            import calendar
-            start_date = f"{tahun}-{bulan:02d}-01T00:00:00"
-            _, last_day = calendar.monthrange(tahun, bulan)
-            end_date = f"{tahun}-{bulan:02d}-{last_day:02d}T23:59:59"
+        import calendar
+        start_date = f"{target_year}-{target_month:02d}-01T00:00:00"
+        _, last_day = calendar.monthrange(target_year, target_month)
+        end_date = f"{target_year}-{target_month:02d}-{last_day:02d}T23:59:59"
             
         summaries = []
         for cat in categories.data:
-            # Query incoming transactions
-            query_masuk = supabase.table("budget_records").select("jumlah").eq("category_id", cat["id"]).eq("tipe", "masuk")
-            if has_monthly_filter:
-                query_masuk = query_masuk.gte("created_at", start_date).lte("created_at", end_date)
-            masuk = safe_supabase_call(lambda: query_masuk.execute())
-            total_masuk = sum(r["jumlah"] for r in masuk.data) if masuk.data else 0
+            # 1. Fetch all allocations for this category to calculate current and prior allocations
+            allocations_res = safe_supabase_call(
+                lambda: supabase.table("budget_allocations")
+                .select("jumlah_anggaran, bulan, tahun")
+                .eq("category_id", cat["id"])
+                .execute()
+            )
             
-            # Query outgoing transactions
-            query_keluar = supabase.table("budget_records").select("jumlah").eq("category_id", cat["id"]).eq("tipe", "keluar")
-            if has_monthly_filter:
-                query_keluar = query_keluar.gte("created_at", start_date).lte("created_at", end_date)
-            keluar = safe_supabase_call(lambda: query_keluar.execute())
-            total_keluar = sum(r["jumlah"] for r in keluar.data) if keluar.data else 0
+            curr_alloc = 0.0
+            prior_alloc = 0.0
+            if allocations_res.data:
+                for alloc in allocations_res.data:
+                    y = alloc["tahun"]
+                    m = alloc["bulan"]
+                    val = float(alloc["jumlah_anggaran"])
+                    if y == target_year and m == target_month:
+                        curr_alloc = val
+                    elif y < target_year or (y == target_year and m < target_month):
+                        prior_alloc += val
+                        
+            if curr_alloc == 0.0 and prior_alloc == 0.0:
+                # Fallback to default/master category saldo_awal if no allocation exists in history
+                curr_alloc = float(cat.get("saldo_awal") or 0.0)
+                
+            # 2. Prior transactions (before start_date) to calculate cumulative balance carry-over
+            prior_records_res = safe_supabase_call(
+                lambda: supabase.table("budget_records")
+                .select("tipe, jumlah")
+                .eq("category_id", cat["id"])
+                .lt("created_at", start_date)
+                .execute()
+            )
+            prior_in = sum(float(r["jumlah"]) for r in prior_records_res.data if r["tipe"] == "masuk") if prior_records_res.data else 0.0
+            prior_out = sum(float(r["jumlah"]) for r in prior_records_res.data if r["tipe"] == "keluar") if prior_records_res.data else 0.0
             
-            # Saldo awal
-            if has_monthly_filter:
-                # Query monthly allocation
-                allocation = safe_supabase_call(
-                    lambda: supabase.table("budget_allocations")
-                    .select("jumlah_anggaran")
-                    .eq("category_id", cat["id"])
-                    .eq("tahun", tahun)
-                    .eq("bulan", bulan)
-                    .execute()
-                )
-                saldo_awal = float(allocation.data[0]["jumlah_anggaran"]) if allocation.data else 0.0
-            else:
-                saldo_awal = float(cat.get("saldo_awal") or 0.0)
+            # Carry-over sisa balance from prior months
+            carry_over = prior_alloc + prior_in - prior_out
+            
+            # Current Saldo Awal is current month's allocation + carry_over
+            saldo_awal = curr_alloc + carry_over
+            
+            # 3. Current month transactions (start_date <= created_at <= end_date)
+            curr_masuk_res = safe_supabase_call(
+                lambda: supabase.table("budget_records")
+                .select("jumlah")
+                .eq("category_id", cat["id"])
+                .eq("tipe", "masuk")
+                .gte("created_at", start_date)
+                .lte("created_at", end_date)
+                .execute()
+            )
+            total_masuk = sum(float(r["jumlah"]) for r in curr_masuk_res.data) if curr_masuk_res.data else 0.0
+            
+            curr_keluar_res = safe_supabase_call(
+                lambda: supabase.table("budget_records")
+                .select("jumlah")
+                .eq("category_id", cat["id"])
+                .eq("tipe", "keluar")
+                .gte("created_at", start_date)
+                .lte("created_at", end_date)
+                .execute()
+            )
+            total_keluar = sum(float(r["jumlah"]) for r in curr_keluar_res.data) if curr_keluar_res.data else 0.0
             
             summaries.append({
                 "category_id": cat["id"],
