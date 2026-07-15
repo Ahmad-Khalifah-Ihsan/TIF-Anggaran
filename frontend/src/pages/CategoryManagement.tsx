@@ -145,7 +145,9 @@ export default function CategoryManagement() {
     };
 
     const saldoAwal = parseFormattedNumber(formData.saldo_awal);
-    payload.saldo_awal = saldoAwal;
+    if (!editingCategory || saldoAwal !== editingCategory.saldo_awal) {
+      payload.saldo_awal = saldoAwal;
+    }
 
     try {
       setSubmitting(true);

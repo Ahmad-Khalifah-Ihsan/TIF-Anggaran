@@ -149,7 +149,7 @@ async def get_budget_categories(
                 if cat_id in allocations_map:
                     cat["saldo_awal"] = float(allocations_map[cat_id] or 0.0)
                 else:
-                    cat["saldo_awal"] = float(cat.get("saldo_awal") or 0.0)
+                    cat["saldo_awal"] = 0.0
                     
         return {"status": "success", "data": categories}
     except Exception as e:
@@ -258,15 +258,23 @@ async def update_budget_category(
         
         update_data = {k: v for k, v in request.model_dump().items() if v is not None}
         
-        if not update_data:
+        monthly_saldo_awal = None
+        if bulan is not None and tahun is not None and "saldo_awal" in update_data:
+            monthly_saldo_awal = update_data.pop("saldo_awal")
+            
+        if not update_data and monthly_saldo_awal is None:
             raise HTTPException(status_code=400, detail="Tidak ada data untuk diupdate")
-        
-        response = safe_supabase_call(
-            lambda: supabase.table("budget_categories").update(update_data).eq("id", category_id).execute()
-        )
+            
+        category_data = None
+        if update_data:
+            response = safe_supabase_call(
+                lambda: supabase.table("budget_categories").update(update_data).eq("id", category_id).execute()
+            )
+            if response.data:
+                category_data = response.data[0]
         
         # If monthly params are passed and saldo_awal is updated, upsert allocation
-        if bulan is not None and tahun is not None and request.saldo_awal is not None:
+        if bulan is not None and tahun is not None and monthly_saldo_awal is not None:
             # Check if allocation already exists
             alloc_check = safe_supabase_call(
                 lambda: supabase.table("budget_allocations")
@@ -282,7 +290,7 @@ async def update_budget_category(
                 safe_supabase_call(
                     lambda: supabase.table("budget_allocations")
                     .update({
-                        "jumlah_anggaran": request.saldo_awal,
+                        "jumlah_anggaran": monthly_saldo_awal,
                         "updated_at": datetime.now().astimezone().isoformat()
                     })
                     .eq("id", alloc_check.data[0]["id"])
@@ -296,13 +304,19 @@ async def update_budget_category(
                         "category_id": category_id,
                         "bulan": bulan,
                         "tahun": tahun,
-                        "jumlah_anggaran": request.saldo_awal,
+                        "jumlah_anggaran": monthly_saldo_awal,
                         "updated_at": datetime.now().astimezone().isoformat()
                     })
                     .execute()
                 )
+                
+        if not category_data:
+            cat_fetch = safe_supabase_call(
+                lambda: supabase.table("budget_categories").select("*").eq("id", category_id).execute()
+            )
+            category_data = cat_fetch.data[0]
         
-        return {"status": "success", "data": response.data[0]}
+        return {"status": "success", "data": category_data}
     except HTTPException:
         raise
     except Exception as e:
