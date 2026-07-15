@@ -147,9 +147,9 @@ async def get_budget_categories(
             for cat in categories:
                 cat_id = cat["id"]
                 if cat_id in allocations_map:
-                    cat["saldo_awal"] = allocations_map[cat_id]
+                    cat["saldo_awal"] = float(allocations_map[cat_id] or 0.0)
                 else:
-                    cat["saldo_awal"] = 0.0
+                    cat["saldo_awal"] = float(cat.get("saldo_awal") or 0.0)
                     
         return {"status": "success", "data": categories}
     except Exception as e:
@@ -418,6 +418,7 @@ async def get_budget_summary(
                 .execute()
             )
             
+            has_curr_alloc = False
             curr_alloc = 0.0
             prior_alloc = 0.0
             if allocations_res.data:
@@ -427,10 +428,11 @@ async def get_budget_summary(
                     val = float(alloc["jumlah_anggaran"])
                     if y == target_year and m == target_month:
                         curr_alloc = val
+                        has_curr_alloc = True
                     elif y < target_year or (y == target_year and m < target_month):
                         prior_alloc += val
                         
-            if curr_alloc == 0.0 and prior_alloc == 0.0:
+            if not has_curr_alloc and prior_alloc == 0.0:
                 # Fallback to default/master category saldo_awal if no allocation exists in history
                 curr_alloc = float(cat.get("saldo_awal") or 0.0)
                 

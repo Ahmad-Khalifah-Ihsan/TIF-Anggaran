@@ -60,7 +60,14 @@ export default function MonthlySummary() {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [actualRecords, setActualRecords] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
+  const [monthlyCategories, setMonthlyCategories] = useState<BudgetCategory[]>([]);
   const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    if (!showModal) {
+      setMonthlyCategories([]);
+    }
+  }, [showModal]);
   const [viewingEvidence, setViewingEvidence] = useState<string | null>(null);
   const [evidenceBlobUrl, setEvidenceBlobUrl] = useState<string | null>(null);
 
@@ -133,7 +140,8 @@ export default function MonthlySummary() {
   };
 
   const getTotalSaldoAwal = () => {
-    return categories
+    const listToUse = monthlyCategories.length > 0 ? monthlyCategories : categories;
+    return listToUse
       .filter(c => c.is_active !== false)
       .reduce((sum, cat) => sum + (cat.saldo_awal || 0), 0);
   };
@@ -180,9 +188,17 @@ export default function MonthlySummary() {
     );
   };
 
-  const openModal = (bulan: number) => {
+  const openModal = async (bulan: number) => {
     setSelectedMonth(bulan);
     setShowModal(true);
+    try {
+      const response = await budgetManagementApi.getCategories(bulan, tahun);
+      if (response.status === 'success') {
+        setMonthlyCategories(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching monthly categories:', err);
+    }
   };
 
   const formatDateTime = (isoString: string) => {
