@@ -64,6 +64,7 @@ export default function CategoryManagement() {
   const [filterBulan, setFilterBulan] = useState<number>(new Date().getMonth() + 1);
   const [filterTahun, setFilterTahun] = useState<number>(new Date().getFullYear());
   const [deleteTarget, setDeleteTarget] = useState<BudgetCategory | null>(null);
+  const [selectedMasterId, setSelectedMasterId] = useState<string>('new');
 
   useEffect(() => {
     fetchCategories();
@@ -93,11 +94,13 @@ export default function CategoryManagement() {
 
   const handleOpenCreate = () => {
     resetForm();
+    setSelectedMasterId('new');
     setShowModal(true);
   };
 
   const handleOpenEdit = (category: BudgetCategory) => {
     setEditingCategory(category);
+    setSelectedMasterId(category.id);
     setFormData({
       nama: category.nama,
       kode: category.kode,
@@ -112,6 +115,7 @@ export default function CategoryManagement() {
   const handleCloseModal = () => {
     setShowModal(false);
     resetForm();
+    setSelectedMasterId('new');
   };
 
   const formatCurrency = (num: number) => {
@@ -148,18 +152,23 @@ export default function CategoryManagement() {
     };
 
     const saldoAwal = parseFormattedNumber(formData.saldo_awal);
-    if (!editingCategory || saldoAwal !== editingCategory.saldo_awal) {
+    const isEditing = !!editingCategory;
+    const isExistingAllocation = !isEditing && selectedMasterId !== 'new';
+
+    // Only send saldo_awal if creating a new master category, or if we explicitly modified the saldo
+    if (!isEditing || saldoAwal !== editingCategory.saldo_awal) {
       payload.saldo_awal = saldoAwal;
     }
 
     try {
       setSubmitting(true);
       
-      if (editingCategory) {
-        // Update existing category
-        const result = await budgetManagementApi.updateCategory(editingCategory.id, payload, filterBulan, filterTahun);
+      if (isEditing || isExistingAllocation) {
+        // Update existing category or allocate budget to existing category
+        const targetId = isEditing ? editingCategory.id : selectedMasterId;
+        const result = await budgetManagementApi.updateCategory(targetId, payload, filterBulan, filterTahun);
         if (result.status === 'success') {
-          setSuccess('Mata anggaran berhasil diupdate!');
+          setSuccess(isEditing ? 'Mata anggaran berhasil diupdate!' : 'Anggaran berhasil dialokasikan!');
           fetchCategories();
           setTimeout(handleCloseModal, 1500);
         } else {
@@ -245,7 +254,7 @@ export default function CategoryManagement() {
     }
   };
 
-  const activeCategories = categories.filter(c => c.is_active !== false);
+  const activeCategories = categories.filter(c => c.is_active !== false && (c.saldo_awal || 0) > 0);
   const inactiveCategories = categories.filter(c => c.is_active === false);
   const displayedCategories = showInactive ? inactiveCategories : activeCategories;
 
@@ -365,7 +374,7 @@ export default function CategoryManagement() {
               {displayedCategories.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                    {showInactive ? 'Tidak ada mata anggaran yang dinonaktifkan' : 'Belum ada mata anggaran'}
+                    {showInactive ? 'Tidak ada mata anggaran yang dinonaktifkan' : 'Belum ada mata anggaran yang dialokasikan untuk periode ini'}
                   </td>
                 </tr>
               ) : (
@@ -440,6 +449,45 @@ export default function CategoryManagement() {
                 <div className="bg-green-500/20 text-green-400 text-sm p-3 rounded-lg flex items-center gap-2">
                   <CheckCircle size={16} />
                   {success}
+                </div>
+              )}
+
+              {!editingCategory && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Tipe Kategori Anggaran
+                  </label>
+                  <select
+                    className="w-full bg-background border border-border rounded-lg px-4 py-2.5 outline-none cursor-pointer text-foreground"
+                    value={selectedMasterId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedMasterId(val);
+                      if (val === 'new') {
+                        setFormData({ nama: '', kode: '', deskripsi: '', saldo_awal: '' });
+                      } else {
+                        const cat = categories.find(c => c.id === val);
+                        if (cat) {
+                          setFormData({
+                            nama: cat.nama,
+                            kode: cat.kode,
+                            deskripsi: cat.deskripsi || '',
+                            saldo_awal: ''
+                          });
+                        }
+                      }
+                    }}
+                  >
+                    <option value="new">-- Buat Kategori Baru --</option>
+                    {categories
+                      .filter(c => c.is_active !== false && (!c.saldo_awal || c.saldo_awal === 0))
+                      .map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.kode} - {c.nama} (Gunakan Kategori yang Sudah Ada)
+                        </option>
+                      ))
+                    }
+                  </select>
                 </div>
               )}
 
