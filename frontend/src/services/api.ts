@@ -199,6 +199,14 @@ export const budgetManagementApi = {
     return handleResponse<any>(response);
   },
 
+  async deleteAllocation(categoryId: string, bulan: number, tahun: number) {
+    const response = await fetch(`${API_BASE_URL}/api/v1/budget/categories/${categoryId}/allocations?bulan=${bulan}&tahun=${tahun}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<any>(response);
+  },
+
   async getSummary(bulan?: number | null, tahun?: number | null) {
     let url = `${API_BASE_URL}/api/v1/budget/summary`;
     const params = new URLSearchParams();

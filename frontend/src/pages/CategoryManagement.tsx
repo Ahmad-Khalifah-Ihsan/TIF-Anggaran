@@ -10,7 +10,9 @@ import {
   CheckCircle,
   AlertCircle,
   Settings,
-  Filter
+  Filter,
+  Calendar,
+  Globe
 } from 'lucide-react';
 
 interface BudgetCategory {
@@ -61,6 +63,7 @@ export default function CategoryManagement() {
   const [showInactive, setShowInactive] = useState(false);
   const [filterBulan, setFilterBulan] = useState<number>(new Date().getMonth() + 1);
   const [filterTahun, setFilterTahun] = useState<number>(new Date().getFullYear());
+  const [deleteTarget, setDeleteTarget] = useState<BudgetCategory | null>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -180,33 +183,65 @@ export default function CategoryManagement() {
     }
   };
 
-  const handleDelete = async (category: BudgetCategory) => {
-    const confirmMsg = category.is_active === false 
-      ? `Yakin hapus permanen mata anggaran "${category.nama}"?`
-      : `Yakin nonaktifkan mata anggaran "${category.nama}"? Kategori yang memiliki transaksi akan dinonaktifkan saja.`;
-    
-    if (!confirm(confirmMsg)) return;
-
+  const handleDeleteAllocation = async () => {
+    if (!deleteTarget) return;
     try {
       setSubmitting(true);
-      let result;
-      if (category.is_active === false) {
-        // Force delete inactive category
-        result = await budgetManagementApi.forceDeleteCategory(category.id);
-      } else {
-        // Soft delete (deactivate) active category
-        result = await budgetManagementApi.deleteCategory(category.id);
-      }
+      const result = await budgetManagementApi.deleteAllocation(deleteTarget.id, filterBulan, filterTahun);
       if (result.status === 'success') {
-        setSuccess(result.message || 'Mata anggaran berhasil dihapus!');
+        setSuccess(`Alokasi anggaran "${deleteTarget.nama}" untuk bulan ${BULAN_OPTIONS.find(b => b.value === filterBulan)?.label} ${filterTahun} berhasil dihapus!`);
+        setDeleteTarget(null);
         fetchCategories();
       } else {
-        throw new Error(result.detail || 'Gagal hapus');
+        throw new Error(result.detail || 'Gagal menghapus alokasi');
       }
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteGlobal = async () => {
+    if (!deleteTarget) return;
+    try {
+      setSubmitting(true);
+      const result = await budgetManagementApi.deleteCategory(deleteTarget.id);
+      if (result.status === 'success') {
+        setSuccess(`Mata anggaran "${deleteTarget.nama}" berhasil dinonaktifkan secara global!`);
+        setDeleteTarget(null);
+        fetchCategories();
+      } else {
+        throw new Error(result.detail || 'Gagal menonaktifkan kategori');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Terjadi kesalahan');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (category: BudgetCategory) => {
+    if (category.is_active === false) {
+      // Force delete inactive category from database permanently
+      if (!confirm(`Yakin hapus permanen mata anggaran "${category.nama}"?`)) return;
+      try {
+        setSubmitting(true);
+        const result = await budgetManagementApi.forceDeleteCategory(category.id);
+        if (result.status === 'success') {
+          setSuccess(result.message || 'Mata anggaran berhasil dihapus permanen!');
+          fetchCategories();
+        } else {
+          throw new Error(result.detail || 'Gagal hapus');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Terjadi kesalahan');
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      // Open custom confirmation modal for active categories
+      setDeleteTarget(category);
     }
   };
 
@@ -489,6 +524,68 @@ export default function CategoryManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border w-full max-w-md rounded-2xl p-6 shadow-2xl relative">
+            <h3 className="text-xl font-bold text-foreground mb-3 flex items-center gap-2">
+              <Trash2 className="text-red-400" size={24} />
+              Hapus Mata Anggaran
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Pilih opsi penghapusan untuk mata anggaran <strong className="text-foreground">"{deleteTarget.nama}"</strong>:
+            </p>
+            
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={handleDeleteAllocation}
+                disabled={submitting}
+                className="w-full text-left p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all group flex items-start gap-3"
+              >
+                <div className="p-2 rounded-lg bg-primary/10 text-primary mt-0.5 group-hover:bg-primary/20 transition-colors">
+                  <Calendar size={18} />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground text-sm">Hapus Alokasi Bulan Ini Saja</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Hanya menghapus anggaran untuk periode <strong>{BULAN_OPTIONS.find(b => b.value === filterBulan)?.label} {filterTahun}</strong>. Saldo awal bulan ini akan kembali menjadi Rp 0.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteGlobal}
+                disabled={submitting}
+                className="w-full text-left p-4 rounded-xl border border-border hover:border-red-500/50 hover:bg-red-500/5 transition-all group flex items-start gap-3"
+              >
+                <div className="p-2 rounded-lg bg-red-500/10 text-red-400 mt-0.5 group-hover:bg-red-500/20 transition-colors">
+                  <Globe size={18} />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground text-sm text-red-400">Nonaktifkan Secara Global</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Menonaktifkan kategori ini di semua periode bulan/tahun.
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex gap-3 pt-6 mt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={submitting}
+                className="w-full py-2.5 rounded-lg font-medium bg-secondary border border-border hover:bg-slate-700 transition-colors text-center text-sm"
+              >
+                Batal
+              </button>
+            </div>
           </div>
         </div>
       )}

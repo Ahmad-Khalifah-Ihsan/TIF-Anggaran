@@ -399,6 +399,31 @@ async def force_delete_budget_category(category_id: str, current_user = Depends(
         logger.error(f"Force delete category error: {str(e)}")
         raise HTTPException(status_code=500, detail="Terjadi kesalahan server")
 
+@router.delete("/categories/{category_id}/allocations")
+async def delete_budget_allocation(
+    category_id: str,
+    bulan: int,
+    tahun: int,
+    current_user = Depends(get_current_user)
+):
+    try:
+        supabase: Client = safe_supabase_call(get_supabase_service_client)
+        
+        # Delete the allocation row
+        response = safe_supabase_call(
+            lambda: supabase.table("budget_allocations")
+            .delete()
+            .eq("category_id", category_id)
+            .eq("bulan", bulan)
+            .eq("tahun", tahun)
+            .execute()
+        )
+        
+        return {"status": "success", "message": "Alokasi bulanan berhasil dihapus"}
+    except Exception as e:
+        logger.error(f"Delete allocation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan server")
+
 # ============== EXISTING ENDPOINTS ==============
 
 @router.get("/summary")
